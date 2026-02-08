@@ -309,6 +309,9 @@ button.action.primary {
 
 .paint-grid {
   max-width: 720px;
+  touch-action: none; /* タッチデバイスでスクロールを防止 */
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 @media (max-width: 720px) {

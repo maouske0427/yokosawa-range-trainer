@@ -748,15 +748,87 @@ document.addEventListener("click", (event) => {
     return;
   }
 
+  });
+
+// Range Painting: ドラッグで連続ON/OFF
+let paintDragging = false;
+let paintDragMode = null; // "add" or "remove"
+
+const handlePaintCellInteraction = (cell, isStart = false) => {
+  if (!cell || state.paintShowCorrect) return;
+  const hand = cell.dataset.hand;
+  if (!hand) return;
+  
+  if (isStart) {
+    // ドラッグ開始時: 最初のセルの状態に応じてモードを決定
+    if (state.paintSelection.has(hand)) {
+      paintDragMode = "remove";
+      state.paintSelection.delete(hand);
+      cell.classList.remove("selected");
+    } else {
+      paintDragMode = "add";
+      state.paintSelection.add(hand);
+      cell.classList.add("selected");
+    }
+  } else if (paintDragging && paintDragMode) {
+    // ドラッグ中: モードに応じて選択/解除
+    if (paintDragMode === "add" && !state.paintSelection.has(hand)) {
+      state.paintSelection.add(hand);
+      cell.classList.add("selected");
+    } else if (paintDragMode === "remove" && state.paintSelection.has(hand)) {
+      state.paintSelection.delete(hand);
+      cell.classList.remove("selected");
+    }
+  }
+};
+
+// マウスイベント
+elements.paint.grid.addEventListener("mousedown", (event) => {
   const cell = event.target.closest(".range-cell");
   if (cell && !state.paintShowCorrect) {
-    const hand = cell.dataset.hand;
-    if (state.paintSelection.has(hand)) {
-      state.paintSelection.delete(hand);
-    } else {
-      state.paintSelection.add(hand);
-    }
-    cell.classList.toggle("selected");
+    paintDragging = true;
+    handlePaintCellInteraction(cell, true);
+    event.preventDefault(); // テキスト選択を防止
+  }
+});
+
+elements.paint.grid.addEventListener("mouseover", (event) => {
+  if (!paintDragging) return;
+  const cell = event.target.closest(".range-cell");
+  handlePaintCellInteraction(cell, false);
+});
+
+document.addEventListener("mouseup", () => {
+  if (paintDragging) {
+    paintDragging = false;
+    paintDragMode = null;
+    savePaintSelection();
+  }
+});
+
+// タッチイベント（モバイル対応）
+elements.paint.grid.addEventListener("touchstart", (event) => {
+  const touch = event.touches[0];
+  const cell = document.elementFromPoint(touch.clientX, touch.clientY)?.closest(".range-cell");
+  if (cell && !state.paintShowCorrect) {
+    paintDragging = true;
+    handlePaintCellInteraction(cell, true);
+    event.preventDefault(); // スクロールを防止
+  }
+}, { passive: false });
+
+elements.paint.grid.addEventListener("touchmove", (event) => {
+  if (!paintDragging) return;
+  const touch = event.touches[0];
+  const cell = document.elementFromPoint(touch.clientX, touch.clientY)?.closest(".range-cell");
+  handlePaintCellInteraction(cell, false);
+  event.preventDefault(); // スクロールを防止
+}, { passive: false });
+
+document.addEventListener("touchend", () => {
+  if (paintDragging) {
+    paintDragging = false;
+    paintDragMode = null;
     savePaintSelection();
   }
 });
