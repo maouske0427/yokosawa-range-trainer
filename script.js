@@ -61,7 +61,6 @@ const state = {
     streak: 0,
     tableSize: 6,
     locked: false,
-    quizType: "open",
     fixPosEnabled: storage.load("yoko-range-trainer:open:fixPosEnabled", false),
     fixPos: storage.load("yoko-range-trainer:open:fixPos", "UTG")
   },
@@ -117,6 +116,7 @@ const elements = {
     hero: document.getElementById("actionHero"),
     hand: document.getElementById("actionHand"),
     feedback: document.getElementById("actionFeedback"),
+    reason: document.getElementById("actionReason"),
     next: document.getElementById("actionNext"),
     answerRange: document.getElementById("actionAnswerRange"),
     rangeHero: document.getElementById("actionRangeHero"),
@@ -146,8 +146,11 @@ const elements = {
 const getModeKey = () => (state.mode === "ring" ? "ring" : "tour");
 const getPositionsByTableSize = (tableSize) => (tableSize === 6 ? POSITIONS_6 : POSITIONS_9);
 
-const setFixedPosOptions = (selectEl, tableSize) => {
-  const positions = getPositionsByTableSize(tableSize);
+const setFixedPosOptions = (selectEl, tableSize, excludeBB = false) => {
+  let positions = getPositionsByTableSize(tableSize);
+  if (excludeBB) {
+    positions = positions.filter((p) => p !== "BB");
+  }
   selectEl.innerHTML = "";
   positions.forEach((pos) => {
     const opt = document.createElement("option");
@@ -195,6 +198,40 @@ const getRequiredRank = (position, mode, tableSize) => {
 };
 
 const getHandRank = (hand) => HAND_RANKS[hand] ?? 0;
+
+// レベル番号から色名への変換（下から順に: 灰、ピンク、紫、白、水、緑、黄、赤、青）
+const RANK_COLOR_NAMES = ["灰", "ピンク", "紫", "白", "水", "緑", "黄", "赤", "青"];
+const getRankColorName = (rank) => RANK_COLOR_NAMES[Math.min(Math.max(rank, 0), 8)];
+
+// アクション決定の理由を生成する関数
+const getActionDecisionReason = (heroPos, oppPos, mode, tableSize) => {
+  const oppRequired = getRequiredRank(oppPos, mode, tableSize);
+  const ringAdjust = mode === "ring" ? 1 : 0;
+  const oppColorName = getRankColorName(oppRequired);
+  
+  // BB特例（横沢ルール）
+  if (heroPos === "BB") {
+    const baseCallColor = getRankColorName(3 + ringAdjust); // 白（リングは水）
+    const threeBetColor = getRankColorName(oppRequired + 2);
+    
+    if (oppPos === "BTN" || oppPos === "SB") {
+      const callMinColor = getRankColorName(1 + ringAdjust); // ピンク（リングは紫）
+      return `相手は${oppPos}からレイズしているので、あなたは${threeBetColor}以上で3-BET、${baseCallColor}～${callMinColor}でコール、それ以下はフォールドします。`;
+    } else if (oppPos === "CO") {
+      const callMinColor = getRankColorName(2 + ringAdjust); // 紫（リングは白）
+      return `相手は${oppPos}からレイズしているので、あなたは${threeBetColor}以上で3-BET、${baseCallColor}～${callMinColor}でコール、それ以下はフォールドします。`;
+    } else {
+      // EP/MPなど（白以上のみコール）
+      return `相手は${oppPos}からレイズしているので、あなたは${threeBetColor}以上で3-BET、${baseCallColor}でコール、それ以下はフォールドします。`;
+    }
+  }
+  
+  // 通常ルール
+  const callColor = getRankColorName(oppRequired + 1);
+  const threeBetColor = getRankColorName(oppRequired + 2);
+  
+  return `相手は${oppColorName}以上でレイズしているので、あなたは${threeBetColor}以上で3-BET、${callColor}でコール、${oppColorName}以下はフォールドします。`; 
+};
 
 const formatHandWithSuits = (hand) => {
   const suited = hand.endsWith("s");
@@ -382,27 +419,22 @@ const randomItem = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 const nextOpenQuestion = () => {
   const positions = getPositionsByTableSize(state.open.tableSize);
+  // BBはオープンレイズしないため除外
+  const validPositions = positions.filter((p) => p !== "BB");
+  
   state.open.currentHand = randomItem(Object.keys(HAND_RANKS));
   if (state.open.fixPosEnabled) {
-    state.open.currentPos = positions.includes(state.open.fixPos) ? state.open.fixPos : positions[0];
+    // 固定ポジションがBBの場合は最初の有効ポジションを使用
+    state.open.currentPos = validPositions.includes(state.open.fixPos) ? state.open.fixPos : validPositions[0];
   } else {
-    state.open.currentPos = randomItem(positions);
+    state.open.currentPos = randomItem(validPositions);
   }
-  state.open.quizType = state.open.currentPos === "BB" ? "bbDefense" : "open";
+  state.open.quizType = "open";
 
-  if (state.open.quizType === "bbDefense") {
-    const oppCandidates = positions.filter((p) => p !== "BB");
-    state.open.oppPos = randomItem(oppCandidates);
-    elements.open.opp.textContent = state.open.oppPos;
-    elements.open.oppRow.style.display = "block";
-    elements.open.btn2.textContent = "CALL";
-    elements.open.rangePos.textContent = `BB vs ${state.open.oppPos}（CALLレンジ）`;
-  } else {
-    state.open.oppPos = null;
-    elements.open.oppRow.style.display = "none";
-    elements.open.btn2.textContent = "RAISE";
-    elements.open.rangePos.textContent = state.open.currentPos;
-  }
+  state.open.oppPos = null;
+  elements.open.oppRow.style.display = "none";
+  elements.open.btn2.textContent = "RAISE";
+  elements.open.rangePos.textContent = state.open.currentPos;
 
   elements.open.position.textContent = state.open.currentPos;
   elements.open.hand.innerHTML = formatHandWithSuits(state.open.currentHand);
@@ -454,6 +486,7 @@ const nextActionQuestion = () => {
   elements.action.hero.textContent = state.action.heroPos;
   elements.action.hand.innerHTML = formatHandWithSuits(state.action.currentHand);
   elements.action.answerRange.style.display = "none";
+  elements.action.reason.style.display = "none";
   elements.action.next.style.display = "none";
   elements.action.feedback.textContent = "";
   state.action.locked = false;
@@ -650,12 +683,8 @@ document.addEventListener("click", (event) => {
   const openBtn = event.target.closest("[data-open-answer]");
   if (openBtn) {
     if (state.open.locked) return;
-    const rawAnswer = openBtn.dataset.openAnswer; // FOLD or RAISE(button2)
-    const answer = state.open.quizType === "bbDefense" && rawAnswer === "RAISE" ? "CALL" : rawAnswer;
-    const correct =
-      state.open.quizType === "bbDefense"
-        ? judgeBBDefense(state.open.currentHand, state.open.oppPos, state.mode, state.open.tableSize)
-        : judgeOpenRaise(state.open.currentHand, state.open.currentPos, state.mode, state.open.tableSize);
+    const answer = openBtn.dataset.openAnswer;
+    const correct = judgeOpenRaise(state.open.currentHand, state.open.currentPos, state.mode, state.open.tableSize);
     const isCorrect = answer === correct;
     state.open.total += 1;
     if (isCorrect) {
@@ -670,10 +699,7 @@ document.addEventListener("click", (event) => {
     updateStats("open");
     
     // Show correct range
-    const correctRange =
-      state.open.quizType === "bbDefense"
-        ? getCorrectBBDefenseCallRange(state.open.oppPos, state.mode, state.open.tableSize)
-        : getCorrectRangeForPosition(state.open.currentPos, state.mode, state.open.tableSize);
+    const correctRange = getCorrectRangeForPosition(state.open.currentPos, state.mode, state.open.tableSize);
     buildMiniRangeGrid(elements.open.rangeGrid, correctRange);
     elements.open.answerRange.style.display = "block";
     elements.open.next.style.display = "block";
@@ -704,6 +730,11 @@ document.addEventListener("click", (event) => {
       elements.action.feedback.textContent = `不正解。正解は ${correct}`;
     }
     updateStats("action");
+    
+    // Show reason
+    const reason = getActionDecisionReason(state.action.heroPos, state.action.oppPos, state.mode, state.action.tableSize);
+    elements.action.reason.textContent = reason;
+    elements.action.reason.style.display = "block";
     
     // Show correct range
     const correctRange = getCorrectRangeForAction(state.action.heroPos, state.action.oppPos, state.mode, state.action.tableSize);
@@ -751,9 +782,10 @@ elements.modeToggle.addEventListener("change", (event) => {
 
 elements.open.tableSize.addEventListener("change", (event) => {
   state.open.tableSize = parseInt(event.target.value);
-  setFixedPosOptions(elements.open.fixPos, state.open.tableSize);
-  if (!getPositionsByTableSize(state.open.tableSize).includes(state.open.fixPos)) {
-    state.open.fixPos = getPositionsByTableSize(state.open.tableSize)[0];
+  setFixedPosOptions(elements.open.fixPos, state.open.tableSize, true);
+  const validPositions = getPositionsByTableSize(state.open.tableSize).filter((p) => p !== "BB");
+  if (!validPositions.includes(state.open.fixPos)) {
+    state.open.fixPos = validPositions[0];
     storage.save("yoko-range-trainer:open:fixPos", state.open.fixPos);
   }
   elements.open.fixPos.value = state.open.fixPos;
@@ -847,10 +879,11 @@ const init = () => {
   setMode(state.mode);
   setPaintPositionOptions();
   // fixed position selects
-  setFixedPosOptions(elements.open.fixPos, state.open.tableSize);
+  setFixedPosOptions(elements.open.fixPos, state.open.tableSize, true);
   setFixedPosOptions(elements.action.fixPos, state.action.tableSize);
-  if (!getPositionsByTableSize(state.open.tableSize).includes(state.open.fixPos)) {
-    state.open.fixPos = getPositionsByTableSize(state.open.tableSize)[0];
+  const validOpenPositions = getPositionsByTableSize(state.open.tableSize).filter((p) => p !== "BB");
+  if (!validOpenPositions.includes(state.open.fixPos)) {
+    state.open.fixPos = validOpenPositions[0];
     storage.save("yoko-range-trainer:open:fixPos", state.open.fixPos);
   }
   if (!getPositionsByTableSize(state.action.tableSize).includes(state.action.fixPos)) {

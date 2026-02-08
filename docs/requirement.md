@@ -8,18 +8,17 @@
 
 ## MVP 機能
 - **モード切替**: トーナメント（Anteあり）/ リング（Anteなし）。
-- **Open Raise クイズ**: 2択（FOLD/RAISE）。
-- **Action Decision クイズ**: 3択（FOLD/CALL/3-BET）＋BB特例ロジック。
+- **Open Raise クイズ**: 2択（FOLD/RAISE）。オープンレイズの判断を学習（BBは除外）。
+- **Action Decision クイズ**: 3択（FOLD/CALL/3-BET）。相手のオープンレイズに対する判断を学習。BBディフェンスを含む。
 - **Range Painting**: 13x13グリッドを塗りつぶして正解率表示。
 - **保存**: `localStorage` にモード別設定・スコアを保存。
 
 ## 仕様 / 振る舞い
-- **判定ロジック**: 指定の `getRequiredRank(position, mode)` とヨコサワ・アルゴリズムを実装。
+- **判定ロジック**: 指定の `getRequiredRank(position, mode, tableSize)` とヨコサワ・アルゴリズムを実装。
 - **データ**: `HAND_RANKS` を定数として埋め込み。
 - **UI**: 指定の色・枠線をCSS変数化。白は黒枠。SBは紫太枠＋灰背景。
 
 ## 非機能要件
-- **単一ファイル**: `index.html` にHTML/CSS/JSを集約。
 - **外部依存なし**: ライブラリ・画像の使用禁止。
 - **ローカル完結**: フォルダ移動で別PCでも起動可能。
 - **レスポンシブ**: PC/タブレット/スマホ対応。
