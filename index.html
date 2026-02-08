@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ヨコサワ流ポーカーハンドレンジ・トレーナー</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>ヨコサワ流ポーカーハンドレンジ・トレーナー</h1>
+      <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
+        <div class="mode-badge">
+          モード: <span class="value" id="modeLabel">トーナメント</span>
+        </div>
+        <label class="mode-toggle">
+          <span>トーナメント</span>
+          <input id="modeToggle" type="checkbox" aria-label="モード切替" />
+          <span>リング</span>
+        </label>
+        <div class="mode-hint">トーナメント: Anteあり / リング: Anteなし（要求ランク+1）</div>
+      </div>
+    </header>
+
+    <main>
+      <div class="tabs">
+        <button class="tab-button active" data-tab="open">Open Raise</button>
+        <button class="tab-button" data-tab="action">Action Decision</button>
+        <button class="tab-button" data-tab="paint">Range Painting</button>
+      </div>
+
+      <section class="panel active" id="panel-open">
+        <div class="question-row controls-row">
+          <label>
+            テーブル人数:
+            <select id="openTableSize">
+              <option value="6">6人</option>
+              <option value="9">9人</option>
+            </select>
+          </label>
+          <label>
+            <input id="openFixPosEnabled" type="checkbox" />
+            自分のポジション固定
+          </label>
+          <label>
+            固定ポジション:
+            <select id="openFixPos"></select>
+          </label>
+        </div>
+        <div class="position-info">
+          <div>あなた: <span class="hero" id="openPosition"></span></div>
+          <div id="openOppRow" style="display:none;">相手: <span class="opponent" id="openOpp"></span> がレイズ</div>
+        </div>
+        <div class="hand-display" id="openHand"></div>
+        <div class="button-row">
+          <button class="action" id="openBtn1" data-open-answer="FOLD">FOLD</button>
+          <button class="action primary" id="openBtn2" data-open-answer="RAISE">RAISE</button>
+        </div>
+        <div class="feedback" id="openFeedback"></div>
+        <button class="action" id="openNext" style="display:none;">次の問題へ</button>
+        <div class="answer-range" id="openAnswerRange" style="display:none;">
+          <div class="answer-range-title">正解レンジ（<span id="openRangePos"></span>）:</div>
+          <div class="range-grid mini-range-grid" id="openRangeGrid"></div>
+        </div>
+        <div class="stats">
+          <div class="stat-card">正解数: <span id="openCorrect">0</span></div>
+          <div class="stat-card">回答数: <span id="openTotal">0</span></div>
+          <div class="stat-card">連続正解: <span id="openStreak">0</span></div>
+          <div class="stat-card">ハイスコア: <span id="openBest">0</span></div>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-action">
+        <div class="question-row controls-row">
+          <label>
+            テーブル人数:
+            <select id="actionTableSize">
+              <option value="6">6人</option>
+              <option value="9">9人</option>
+            </select>
+          </label>
+          <label>
+            <input id="actionFixPosEnabled" type="checkbox" />
+            自分のポジション固定
+          </label>
+          <label>
+            固定ポジション:
+            <select id="actionFixPos"></select>
+          </label>
+        </div>
+        <div class="position-info">
+          <div>相手: <span class="opponent" id="actionOpp"></span> がオープンレイズ</div>
+          <div>あなた: <span class="hero" id="actionHero"></span></div>
+        </div>
+        <div class="hand-display" id="actionHand"></div>
+        <div class="button-row">
+          <button class="action" data-action-answer="FOLD">FOLD</button>
+          <button class="action" data-action-answer="CALL">CALL</button>
+          <button class="action" data-action-answer="3-BET">3-BET</button>
+        </div>
+        <div class="feedback" id="actionFeedback"></div>
+        <button class="action" id="actionNext" style="display:none;">次の問題へ</button>
+        <div class="answer-range" id="actionAnswerRange" style="display:none;">
+          <div class="answer-range-title">正解レンジ（<span id="actionRangeHero"></span> vs <span id="actionRangeOpp"></span>）:</div>
+          <div class="range-grid mini-range-grid" id="actionRangeGrid"></div>
+        </div>
+        <div class="stats">
+          <div class="stat-card">正解数: <span id="actionCorrect">0</span></div>
+          <div class="stat-card">回答数: <span id="actionTotal">0</span></div>
+          <div class="stat-card">連続正解: <span id="actionStreak">0</span></div>
+          <div class="stat-card">ハイスコア: <span id="actionBest">0</span></div>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-paint">
+        <div class="range-controls">
+          <label>
+            テーブル人数:
+            <select id="paintTableSize">
+              <option value="6">6人</option>
+              <option value="9">9人</option>
+            </select>
+          </label>
+          <label>
+            ポジション:
+            <select id="paintPosition">
+              <!-- JSで6/9に応じて差し替え -->
+            </select>
+          </label>
+          <button class="action" id="paintCheck">判定</button>
+          <button class="action" id="paintClear">全消し</button>
+          <label class="mode-toggle" id="paintViewToggle" style="display:none;">
+            <span>自分の回答</span>
+            <input type="checkbox" id="paintShowCorrect" aria-label="正解表示切替" />
+            <span>正解</span>
+          </label>
+        </div>
+        <div class="range-grid paint-grid" id="rangeGrid"></div>
+        <div class="feedback" id="paintFeedback"></div>
+        <div class="stats">
+          <div class="stat-card">正解率: <span id="paintAccuracy">0%</span></div>
+          <div class="stat-card">不足: <span id="paintMissing">0</span></div>
+          <div class="stat-card">余分: <span id="paintExtra">0</span></div>
+        </div>
+        <div class="legend" id="rankLegend"></div>
+      </section>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>
